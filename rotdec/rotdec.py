@@ -8,8 +8,8 @@ class RotDec(_LRScheduler):
 
     Args:
         optimizer (Optimizer): Wrapped optimizer.
-        cycles (int): Total number of cycles.
-        steps_per_cycle (int): Number of steps per epoch.
+        epochs (int): Total number of epochs.
+        steps_per_epoch (int): Number of steps per epoch.
         min_lr (float): Minimum learning rate after applying decay. Default: 1e-6.
         lr_decay (float or None): The decay value. 
             - If None: Linear decay to min_lr is used.
@@ -19,12 +19,11 @@ class RotDec(_LRScheduler):
             If None, uses cosine annealing (cosine_decay).
         last_epoch (int): The index of the last epoch. Default: -1.
     """
-    def __init__(self, optimizer, cycles, steps_per_cycle, min_lr=1e-6, lr_decay=None, 
+    def __init__(self, optimizer, epochs, steps_per_epoch, min_lr=1e-6, lr_decay=None, 
                  exp_decay=False, decay_func=None, last_epoch=-1):
         
-        self.cycles = cycles
-        self.steps_per_cycle = steps_per_cycle
-        self.total_steps = cycles * steps_per_cycle
+        self.epochs = epochs
+        self.steps_per_epoch = steps_per_epoch
         self.min_lr = min_lr
         self.exp_decay = exp_decay
         self.decay_func = decay_func or self.cosine_decay
@@ -35,7 +34,7 @@ class RotDec(_LRScheduler):
             base_lr = param_group['lr']
             if lr_decay is None:
                 # Default: Linear decay to min_lr
-                decay = (base_lr - self.min_lr) / (cycles - 1) 
+                decay = (base_lr - self.min_lr) / (epochs - 1) 
             else:
                 # Absolute decay value
                 decay = lr_decay 
@@ -53,18 +52,18 @@ class RotDec(_LRScheduler):
         applying decay_func and base LR decay (linear or exponential).
         """
         current_step = self.last_epoch + 1  # Adjust for 0-indexing
-        current_cycle = current_step // self.steps_per_cycle
+        current_epoch = current_step // self.steps_per_epoch
 
         # Calculate learning rates for each parameter group
         lrs = []
         for i, base_lr in enumerate(self.base_lrs):
             if self.exp_decay:
-                current_initial_lr = base_lr * (self.lr_decay[i] ** current_cycle)
+                current_initial_lr = base_lr * (self.lr_decay[i] ** current_epoch)
             else:
-                current_initial_lr = base_lr - (self.lr_decay[i] * current_cycle)
+                current_initial_lr = base_lr - (self.lr_decay[i] * current_epoch)
 
             # Apply decay within the epoch
-            decay_factor = self.decay_func(current_step % self.steps_per_cycle, self.steps_per_cycle)
+            decay_factor = self.decay_func(current_step % self.steps_per_epoch, self.steps_per_epoch)
 
             # Calculate the new LR, ensuring it's within bounds
             new_lr = max(current_initial_lr * decay_factor, self.min_lr)
